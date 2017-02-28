@@ -7,10 +7,9 @@
 #include <iostream>      // for io
 
 #include <utility.cpp>   // for dieWithError()
+#include <RDTSegment.h>
 
 using namespace std;
-
-const size_t MAX_SEGMENT_SIZE = 1024;
 
 int main(int argc, char *argv[]) 
 {
@@ -33,27 +32,30 @@ int main(int argc, char *argv[])
     serverAddress.sin_addr.s_addr = inet_addr(argv[1]); 
     serverAddress.sin_port = htons(serverPort);
 
-	// Send the string to the server 
-	string sendMsg = "sent by client";
-	if (sendto(sockfd, sendMsg.c_str(), sendMsg.size(), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) 
+	// Send the string to the server
+    struct RDTSegment synSeg;
+    memset(&synSeg, 0, sizeof(struct RDTSegment));
+    setSyn(&synSeg.header);
+    toNetwork(&synSeg.header);
+
+	if (sendto(sockfd, &synSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) 
 		dieWithError("ERROR, fail to send");
 	
-	// Recv a response 
+	// Receive a response 
 	struct sockaddr_in fromAddr;
 	unsigned int fromSize = sizeof(fromAddr);
-	char recvMsg[MAX_SEGMENT_SIZE];
-	memset(&recvMsg, 0, MAX_SEGMENT_SIZE);
-	ssize_t n;
-	if (( n = recvfrom(sockfd, recvMsg, MAX_SEGMENT_SIZE, 0, (struct sockaddr *) &fromAddr, &fromSize)) < 0) {
-		cout << n << endl;
-		// dieWithError("ERROR, fail to receive");
-	}
+
+	struct RDTSegment recvMsg;
+	memset(&synSeg, 0, sizeof(struct RDTSegment));
+
+	if (recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr *) &fromAddr, &fromSize) < 0)
+		dieWithError("ERROR, fail to receive");
 
 	if (serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) 
 		dieWithError("ERROR, unknown server");
 
+	cout << "Client Received: " << endl;
+	print(&recvMsg);
 	close(sockfd); 
-
-	cout << string(recvMsg) << endl;
 	return 0;
 }

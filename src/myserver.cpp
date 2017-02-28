@@ -7,10 +7,9 @@
 #include <iostream>      // for io
 
 #include <utility.cpp>   // for dieWithError()
+#include <RDTSegment.h>
 
 using namespace std;
-
-const size_t MAX_SEGMENT_SIZE = 1024;
 
 int main(int argc, char *argv[])
 {
@@ -39,26 +38,25 @@ int main(int argc, char *argv[])
 
     struct sockaddr_in clientAddress;
 	unsigned int clientAddressLenth;
-	char recvMsg[MAX_SEGMENT_SIZE];
-    memset(&recvMsg, 0, MAX_SEGMENT_SIZE);
-	string sendMsg = "sent by server";
+	struct RDTSegment recvMsg;
+    memset(&recvMsg, 0, sizeof(struct RDTSegment));
 
     while (true) {
     	// Set the size of the in-out parameter
     	clientAddressLenth = sizeof(clientAddress);
 
 		// Block until receive message from a client 
-        ssize_t n;
-		if ((n = recvfrom(sockfd, recvMsg, MAX_SEGMENT_SIZE, 0, (struct sockaddr *) &clientAddress, &clientAddressLenth)) < 0) {
-            cout << n << endl;
+		if (recvfrom(sockfd, &recvMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, &clientAddressLenth) < 0)
 			dieWithError("ERROR, fail to receive!");
-        }
-
-		cout << "Handling client: " << inet_ntoa(clientAddress.sin_addr) << endl;
-        cout << string(recvMsg) << endl;
+		// cout << "Handling client: " << inet_ntoa(clientAddress.sin_addr) << endl;
+        toLocal(&recvMsg.header);
+        cout << "Server Received: " << endl;
+        print(&recvMsg);
+        cout << 0;
+        ack(&recvMsg);
 
 		// Send received datagram back to the client  
-		if (sendto(sockfd, sendMsg.c_str(), MAX_SEGMENT_SIZE, 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0) 
+		if (sendto(sockfd, &recvMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0) 
 			dieWithError("ERROR, fail to send");
     }
 

@@ -4,7 +4,7 @@ CFLAGS=-std=c++0x -Wall -I$(IDIR)
 LFLAGS=-Wall
 ODIR=obj
 
-_DEPS = utility.cpp
+_DEPS = RDTSegment.h utility.cpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
 _OBJ = myserver.o myclient.o

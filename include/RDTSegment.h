@@ -20,33 +20,41 @@ Total: 1024 bytes
 For seqNum and ackNum: max number is 30,730 
 
 For flag
-------------------------------------------------       
-..(unused 14 bits)  |SYN (1 bit) | FIN (1 bit) |
-------------------------------------------------
+-----------------------------------------------------------------------      
+data length (10 bits) | ...(unsued 4 bits) |SYN (1 bit) | FIN (1 bit) |
+-----------------------------------------------------------------------
 
 */
 
-const unsigned int MAXSEGMENTSIZE = 1024;
-const unsigned int MAXSEQNUM = 30720;
+const unsigned int MAX_SEGMENT_SIZE = 1024;
+const unsigned int MAX_SEQ_NUM = 30720;
 
-struct {
+struct RDTHeader {
 	uint16_t seqNum;
 	uint16_t ackNum;
 	uint16_t flag;
 	uint16_t recvW;
-} RDTHeader;
+};
 
-struct {
+struct RDTSegment {
 	RDTHeader header;
 	char *data;
-} RDTSegment;
+};
 
 
 
 // helpful functions
-bool isSyn(struct RDTSegment *segment);
-bool isFin(struct RDTSegment *segment);
-void ack(struct RDTSegment *segment);
+void toLocal(struct RDTHeader *h);
+void toNetwork(struct RDTHeader *h);
+
+bool isSyn(struct RDTHeader *h);
+void setSyn(struct RDTHeader *h);
+bool isFin(struct RDTHeader *h);
+void setFin(struct RDTHeader *h);
+uint16_t dataLength(struct RDTHeader *h);
+void ack(struct RDTSegment *s);
+
+void print(struct RDTSegment *s);
 
 
 #endif

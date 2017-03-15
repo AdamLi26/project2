@@ -7,7 +7,6 @@
 PacketModule::PacketModule(uint16_t seq_num, uint16_t flag) {
   m_seq_num = seq_num;
 
-  clock_gettime(CLOCK_REALTIME, &m_send_time);
   //Note for later. To convert nanoseconds to ms:
   //include <math.h>
   // long ms = round(m_send_time.tv_nsec / 1.0e6)

@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
           for(int i=0; i < 60; i++) {
             //Reuse synSeg, which contains the timeout value
             memset(&recvMsg, 0, sizeof(RDTSegment));
-            int fin_seg_ret = select(sockfd + 1, &readfds, NULL, NULL, &synSeg);
+            int fin_seg_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
             if(fin_seg_ret > 0) {
               if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
                 dieWithError("ERROR, fail to receive");

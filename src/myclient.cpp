@@ -74,7 +74,11 @@ int main(int argc, char *argv[])
 
 
 
-    //Send SYN, taking into account that the SYN may be lost
+
+    /********************************************************
+    I. SEND SYN AND RECEIVE SYNACK
+    Take into acount that either one may be lost
+    ********************************************************/
     while(true) {
       if (sendto(sockfd, &synSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
 	     dieWithError("ERROR, fail to send");
@@ -112,7 +116,9 @@ int main(int argc, char *argv[])
 
     } //while loop
 
-    //Send request for the first file
+    /********************************************************
+    II. REQUEST THE FILE AND RECEIVE THE FILE SIZE
+    ********************************************************/
     while(true) {
 
       struct RDTSegment file_request_segment;
@@ -150,11 +156,15 @@ int main(int argc, char *argv[])
       else {
         dieWithError("ERROR, select() error");
       }
+    } //while(true)
 
       //Open / create the file
       int fd = open("received.data", O_WRONLY | O_CREAT | O_TRUNC);
       if(fd<0)
         dieWithError("Error: Could not open the file. Please restart");
+
+      uint32_t last_seqNum = recv_base;
+      last_seqNum += (file_size / MAX_SEGMENT_SIZE) == 0 ? file_size - MAX_SEGMENT_SIZE :  (file_size / MAX_SEGMENT_SIZE ) *MAX_SEGMENT_SIZE;
 
       //Initialize recv_buffer, which represents a window
       unsigned int window_size = WINDOW_SIZE / MAX_SEGMENT_SIZE;
@@ -162,13 +172,16 @@ int main(int argc, char *argv[])
       //I believe push_back() uses copying so this is okay
       ClientPacketModule module;
       module.received_ = false;
-      memset(&module, 0, sizeof(RDTSegment));
+      memset(&module.segment, 0, sizeof(RDTSegment));
       for(unsigned int i=0; i < window_size; i++) {
         recv_buffer.push_back(module);
       }
 
       recv_end = recv_base + WINDOW_SIZE;
 
+      /********************************************************
+      III. TRANSFER OF DATA
+      ********************************************************/
       while(true) {
         struct RDTSegment recvMsg;
         memset(&recvMsg, 0, sizeof(struct RDTSegment));
@@ -181,6 +194,9 @@ int main(int argc, char *argv[])
         }
         toLocal(&recvMsg.header);
 
+        /****************************
+        Path 1: Message is a FIN
+        ****************************/
         if(isFin(&recvMsg.header)) {
           close(fd);
 
@@ -209,7 +225,7 @@ int main(int argc, char *argv[])
             if(fin_seg_ret > 0) {
               if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
                 dieWithError("ERROR, fail to receive");
-              }
+            }
               toLocal(&recvMsg.header);
               close(sockfd);
               return 0;
@@ -223,6 +239,10 @@ int main(int argc, char *argv[])
           return 0;
 
         }
+        /****************************
+        Path 2: Message is a packet that is outside the current window
+        Note: Must also check if the window is circling back around
+        ****************************/
         else if( recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
                       || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
           ackMsg.header.ackNum = recvMsg.header.seqNum;
@@ -231,6 +251,9 @@ int main(int argc, char *argv[])
               dieWithError("ERROR, fail to send");
           continue;
         }
+        /****************************
+        Path 3: Receive packet within our window
+        ****************************/
         else {
           //Determine which element in our recv_buffer corresponds to the packet received
           uint16_t index = recvMsg.header.seqNum > recv_base ? (recvMsg.header.seqNum - recv_base) / 1024 :
@@ -241,7 +264,7 @@ int main(int argc, char *argv[])
           //Determine the amount of file data read and move that much data into a buffer to be written later
           unsigned int data_per_packet = MAX_SEGMENT_SIZE - sizeof(RDTHeader);
           unsigned int data_left = file_size - file_size_received_so_far;
-          unsigned int amount_of_data = data_left > data_per_packet ? data_per_packet : data_left;
+          unsigned int amount_of_data = (recvMsg.header.seqNum == last_seqNum) ? data_left : data_per_packet;
           file_size_received_so_far += amount_of_data;
           strncpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data); //bug
 
@@ -258,6 +281,7 @@ int main(int argc, char *argv[])
               if(recv_buffer.front().received_) {
                 //Write to file
                 int amount_to_write = strlen(recv_buffer.front().segment.data);
+                cout << "Writing segment " << recv_buffer.front().segment.header.seqNum << endl;
                 write(fd, recv_buffer.front().segment.data, amount_to_write);
 
                 recv_base += MAX_SEGMENT_SIZE;
@@ -284,10 +308,7 @@ int main(int argc, char *argv[])
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
         }
-
-
-      }
-    }
+      } //while(true)
     close(sockfd);
     dieWithError("Got to the end of main function. Not supposed to happen!");
     return 0;

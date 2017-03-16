@@ -10,6 +10,7 @@
 #include <RDTSegment.h>
 
 #include <time.h> //for timeval
+#include <deque>
 
 using namespace std;
 
@@ -38,6 +39,10 @@ int main(int argc, char *argv[])
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
     serverAddress.sin_port = htons(serverPort);
+
+    //For response
+    struct sockaddr_in fromAddr;
+    unsigned int fromSize = sizeof(fromAddr);
 
 	// Prepare SYN to send
     struct RDTSegment synSeg;
@@ -70,8 +75,6 @@ int main(int argc, char *argv[])
 	     dieWithError("ERROR, fail to send");
        cout << "Sending packet SYN\n";
       // Receive a response
-      struct sockaddr_in fromAddr;
-      unsigned int fromSize = sizeof(fromAddr);
 
       struct RDTSegment recvMsg;
       memset(&recvMsg, 0, sizeof(struct RDTSegment));
@@ -127,7 +130,7 @@ int main(int argc, char *argv[])
           dieWithError("ERROR, unknown server");
         }
         cout << "Receiving packet " << recv_base << endl;
-        char[4+1] file_size_string;
+        char file_size_string[4+1];
         strncpy(file_size_string, recvMsg.data, 4);
         file_size_string[4] = '\0';
         file_size = (uint32_t) atoi(file_size_string);
@@ -167,7 +170,7 @@ int main(int argc, char *argv[])
           continue;
         }
         else {
-          
+
         }
 
 

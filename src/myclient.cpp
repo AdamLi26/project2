@@ -10,6 +10,7 @@
 #include <RDTSegment.h>
 
 #include <time.h> //for timeval
+#include <deque>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -43,6 +44,10 @@ int main(int argc, char *argv[])
     serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
     serverAddress.sin_port = htons(serverPort);
 
+    // For response
+    struct sockaddr_in fromAddr;
+    unsigned int fromSize = sizeof(fromAddr);
+
 	// Prepare SYN to send
     struct RDTSegment synSeg;
     memset(&synSeg, 0, sizeof(struct RDTSegment));
@@ -74,9 +79,6 @@ int main(int argc, char *argv[])
       if (sendto(sockfd, &synSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
 	     dieWithError("ERROR, fail to send");
        cout << "Sending packet SYN\n";
-      // Receive a response
-      struct sockaddr_in fromAddr;
-      unsigned int fromSize = sizeof(fromAddr);
 
       struct RDTSegment recvMsg;
       memset(&recvMsg, 0, sizeof(struct RDTSegment));
@@ -132,7 +134,7 @@ int main(int argc, char *argv[])
           dieWithError("ERROR, unknown server");
         }
         cout << "Receiving packet " << recv_base << endl;
-        char[4+1] file_size_string;
+        char file_size_string[4+1] ;
         strncpy(file_size_string, recvMsg.data, 4);
         file_size_string[4] = '\0';
         file_size = (uint32_t) atoi(file_size_string);
@@ -159,8 +161,8 @@ int main(int argc, char *argv[])
       //I believe push_back() uses copying so this is okay
       ClientPacketModule module;
       module.received_ = false;
-      memset(&segment, 0, sizeof(RDTSegment));
-      for(int i=0; i < window_size; i++) {
+      memset(&module, 0, sizeof(RDTSegment));
+      for(unsigned int i=0; i < window_size; i++) {
         recv_buffer.push_back(module);
       }
 
@@ -199,7 +201,7 @@ int main(int argc, char *argv[])
           //Determine the amount of file data read and move that much data into a buffer to be written later
           unsigned int data_per_packet = MAX_SEGMENT_SIZE - sizeof(RDTHeader);
           unsigned int data_left = file_size - file_size_received_so_far;
-          int amount_of_data = data_left > data_per_packet ? data_per_packet : data_left;
+          unsigned int amount_of_data = data_left > data_per_packet ? data_per_packet : data_left;
           strncpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data);
 
           //If data received is less than the size of the data buffer, set the null byte

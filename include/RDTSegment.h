@@ -1,15 +1,15 @@
 #ifndef RDTSegment_INCLUDED
-#define RDTSegment_INCLUDED 
+#define RDTSegment_INCLUDED
 
 #include <string>
 #include <cstdint>
 
-/* 
+/*
 
 Total: 1024 bytes
 --------------------------------------
-|seqNum (2 bytes) | ackNum (2 bytes) | 
---------------------------------------            
+|seqNum (2 bytes) | ackNum (2 bytes) |
+--------------------------------------
 |flag   (2 bytes) | recvW  (2 bytes) |
 --------------------------------------
 |data (1016 bytes)			         |
@@ -17,10 +17,10 @@ Total: 1024 bytes
 |                                    |
 --------------------------------------
 
-For seqNum and ackNum: max number is 30,730 
+For seqNum and ackNum: max number is 30,730
 
 For flag
------------------------------------------------------------------------      
+-----------------------------------------------------------------------
 data length (10 bits) | ...(unsued 4 bits) |SYN (1 bit) | FIN (1 bit) |
 -----------------------------------------------------------------------
 
@@ -28,6 +28,8 @@ data length (10 bits) | ...(unsued 4 bits) |SYN (1 bit) | FIN (1 bit) |
 
 const unsigned int MAX_SEGMENT_SIZE = 1024;
 const unsigned int MAX_SEQ_NUM = 30720;
+const unsigned int TIMEOUT_MS = 500;
+const unsigned int WINDOW_SIZE = 5120; 
 
 struct RDTHeader {
 	uint16_t seqNum;
@@ -38,7 +40,7 @@ struct RDTHeader {
 
 struct RDTSegment {
 	RDTHeader header;
-	char *data;
+	char data[1016+1];
 };
 
 

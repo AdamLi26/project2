@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
+        toLocal(&recvMsg.header);
         cout << "Receiving packet " << recv_base << endl;
         char file_size_string[4+1] ;
         strncpy(file_size_string, recvMsg.data, 4);
@@ -181,12 +182,51 @@ int main(int argc, char *argv[])
         toLocal(&recvMsg.header);
 
         if(isFin(&recvMsg.header)) {
-          //Do stuff
+          close(fd);
+
+          ackMsg.header.ackNum = recvMsg.header.seqNum;
+          cout << "Send packet " << ackMsg.header.ackNum << endl;
+          if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+              dieWithError("ERROR, fail to send");
+
+          struct RDTSegment finMsg;
+          memset(&finMsg, 0, sizeof(struct RDTSegment));
+          setFin(&finMsg.header);
+          uint16_t final_seqNum = ackMsg.header.ackNum + MAX_SEGMENT_SIZE;
+          if(final_seqNum > MAX_SEQ_NUM)
+            final_seqNum = MAX_SEQ_NUM - final_seqNum;
+          cout << "Send packet " << final_seqNum << " FIN\n";
+          finMsg.header.seqNum = final_seqNum;
+          if (sendto(sockfd, &finMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+              dieWithError("ERROR, fail to send");
+
+          //Wait for an ACK, retransmitting FIN on Timeout
+          //If 30 seconds passes, just close the program
+          for(int i=0; i < 60; i++) {
+            //Reuse synSeg, which contains the timeout value
+            memset(&recvMsg, 0, sizeof(RDTSegment));
+            int fin_seg_ret = select(sockfd + 1, &readfds, NULL, NULL, &synSeg);
+            if(fin_seg_ret > 0) {
+              if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
+                dieWithError("ERROR, fail to receive");
+              }
+              toLocal(&recvMsg.header);
+              close(sockfd);
+              return 0;
+            }
+          else {
+              if (sendto(sockfd, &finMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+                dieWithError("ERROR, fail to send");
+          }
+          }
+          close(sockfd);
+          return 0;
+
         }
         else if( recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
                       || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
           ackMsg.header.ackNum = recvMsg.header.seqNum;
-          cout << "Sending packet " << ackMsg.header.ackNum << endl;
+          cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
           continue;
@@ -194,7 +234,7 @@ int main(int argc, char *argv[])
         else {
           //Determine which element in our recv_buffer corresponds to the packet received
           uint16_t index = recvMsg.header.seqNum > recv_base ? (recvMsg.header.seqNum - recv_base) / 1024 :
-                                                                                                                (WINDOW_SIZE-1 - recv_base + recvMsg.header.seqNum) / 1024;
+                                                                                                                (MAX_SEQ_NUM - recv_base + recvMsg.header.seqNum) / 1024;
           recv_buffer[index].received_ = true;
           ackMsg.header.ackNum = recvMsg.header.seqNum;
 
@@ -202,7 +242,8 @@ int main(int argc, char *argv[])
           unsigned int data_per_packet = MAX_SEGMENT_SIZE - sizeof(RDTHeader);
           unsigned int data_left = file_size - file_size_received_so_far;
           unsigned int amount_of_data = data_left > data_per_packet ? data_per_packet : data_left;
-          strncpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data);
+          file_size_received_so_far += amount_of_data;
+          strncpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data); //bug
 
           //If data received is less than the size of the data buffer, set the null byte
           if(amount_of_data == data_left) {
@@ -220,12 +261,12 @@ int main(int argc, char *argv[])
                 write(fd, recv_buffer.front().segment.data, amount_to_write);
 
                 recv_base += MAX_SEGMENT_SIZE;
-                if(recv_base > WINDOW_SIZE-1) {
-                  recv_base -=  WINDOW_SIZE;
+                if(recv_base > MAX_SEQ_NUM) {
+                  recv_base -=  MAX_SEQ_NUM;
                 }
                 recv_end += MAX_SEGMENT_SIZE;
-                if(recv_end > WINDOW_SIZE-1) {
-                  recv_end -= WINDOW_SIZE;
+                if(recv_end > MAX_SEQ_NUM) {
+                  recv_end -= MAX_SEQ_NUM;
                 }
                 recv_buffer.pop_front();
                 //Add a new ClientPacketModule to track for new packets
@@ -247,8 +288,7 @@ int main(int argc, char *argv[])
 
       }
     }
-    cout << "Client Received: " << endl;
-    //print(&recvMsg);
     close(sockfd);
+    dieWithError("Got to the end of main function. Not supposed to happen!");
     return 0;
 }

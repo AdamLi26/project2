@@ -39,7 +39,7 @@ struct RDTHeader {
 
 struct RDTSegment {
 	RDTHeader header;
-	char *data;
+	char data[1016];
 };
 
 

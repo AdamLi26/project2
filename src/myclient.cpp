@@ -56,6 +56,14 @@ int main(int argc, char *argv[])
     tv_synSeg.tv_sec = 0;
     tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
 
+    //SR Protocol information
+    uint16_t recv_base = 0;
+    uint16_t recv_end = 0;
+    deque<ClientPacketModule> recv_buffer;
+    uint32_t file_size = 0;
+
+
+
     //Send SYN, taking into account that the SYN may be lost
     while(true) {
       if (sendto(sockfd, &synSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
@@ -66,7 +74,7 @@ int main(int argc, char *argv[])
       unsigned int fromSize = sizeof(fromAddr);
 
       struct RDTSegment recvMsg;
-      memset(&synSeg, 0, sizeof(struct RDTSegment));
+      memset(&recvMsg, 0, sizeof(struct RDTSegment));
 
 
       int synSeg_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
@@ -78,22 +86,93 @@ int main(int argc, char *argv[])
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
+        toLocal(&recvMsg.header);
         if(!isSyn(&recvMsg.header)) {
-          //Received a message from the server that is not a SYN.
+          //Received a message from the server that is not a SYN. Figure out whether to terminate or what here
           cout << "Error, received a first message that is not a SYN";
         }
-        //INCREMENT RECV_BASE
+        recv_base++;
         cout << "Receiving packet 0" << endl;
         break;
       }
       else if(synSeg_ret == 0) {
-        //Timout occured
+        //Timout occured. Retry connection
+        continue;
       }
       else {
         dieWithError("ERROR, select() error");
       }
 
     } //while loop
+
+    //Send request for the first file
+    while(true) {
+
+      struct RDTSegment file_request_segment;
+      memset(&file_request_segment, 0, sizeof(struct RDTSegment));
+      file_request_segment.header.seqNum = 1;
+      toNetwork(&file_request_segment.header);
+
+      struct RDTSegment recvMsg;
+      memset(&recvMsg, 0, sizeof(struct RDTSegment));
+
+
+      int file_request_segment_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
+      if(file_request_segment_ret > 0) {
+        //Received data
+        if(recvfrom(sockfd, &recvMsg, sizeof(struct RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
+          dieWithError("ERROR, fail to receive");
+        }
+        if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
+          dieWithError("ERROR, unknown server");
+        }
+        cout << "Receiving packet " << recv_base << endl;
+        char[4+1] file_size_string;
+        strncpy(file_size_string, recvMsg.data, 4);
+        file_size_string[4] = '\0';
+        file_size = (uint32_t) atoi(file_size_string);
+        cout << "Preparing to receive file of size: " << file_size << endl;
+        recv_base+=MAX_SEGMENT_SIZE;
+        break;
+      }
+      else if(file_request_segment_ret == 0) {
+        //Timout occured. Retry file request
+        continue;
+      }
+      else {
+        dieWithError("ERROR, select() error");
+      }
+
+
+      while(true) {
+        struct RDTSegment recvMsg;
+        memset(&recvMsg, 0, sizeof(struct RDTSegment));
+
+        struct RDTSegment ackMsg;
+        memset(&ackMsg, 0, sizeof(struct RDTSegment));
+
+        if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
+          dieWithError("ERROR, fail to receive");
+        }
+        toLocal(&recvMsg.header);
+
+        if(isFin(&recvMsg.header)) {
+          //Do stuff
+        }
+        else if(recvMsg.header.seqNum < recv_base) {
+          ackMsg.header.ackNum = recvMsg.header.seqNum;
+          cout << "Sending packet " << ackMsg.header.ackNum << endl;
+          if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+              dieWithError("ERROR, fail to send");
+          continue;
+        }
+        else {
+          
+        }
+
+
+      }
+    }
     cout << "Client Received: " << endl;
     //print(&recvMsg);
     close(sockfd);

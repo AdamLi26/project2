@@ -10,6 +10,7 @@
 #include <RDTSegment.h>
 
 #include <time.h> //for timeval
+#include <deque>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -43,6 +44,10 @@ int main(int argc, char *argv[])
     serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
     serverAddress.sin_port = htons(serverPort);
 
+    //For response
+    struct sockaddr_in fromAddr;
+    unsigned int fromSize = sizeof(fromAddr);
+
 	// Prepare SYN to send
     struct RDTSegment synSeg;
     memset(&synSeg, 0, sizeof(struct RDTSegment));
@@ -64,7 +69,7 @@ int main(int argc, char *argv[])
     uint16_t recv_base = 0;
     uint16_t recv_end = 0;
     deque<ClientPacketModule> recv_buffer;
-    uint32_t file_size = 0;
+    uint32_t  = 0;
     uint32_t file_size_received_so_far = 0;
 
 
@@ -75,8 +80,6 @@ int main(int argc, char *argv[])
 	     dieWithError("ERROR, fail to send");
        cout << "Sending packet SYN\n";
       // Receive a response
-      struct sockaddr_in fromAddr;
-      unsigned int fromSize = sizeof(fromAddr);
 
       struct RDTSegment recvMsg;
       memset(&recvMsg, 0, sizeof(struct RDTSegment));
@@ -132,7 +135,7 @@ int main(int argc, char *argv[])
           dieWithError("ERROR, unknown server");
         }
         cout << "Receiving packet " << recv_base << endl;
-        char[4+1] file_size_string;
+        char file_size_string[4+1];
         strncpy(file_size_string, recvMsg.data, 4);
         file_size_string[4] = '\0';
         file_size = (uint32_t) atoi(file_size_string);
@@ -190,6 +193,7 @@ int main(int argc, char *argv[])
           continue;
         }
         else {
+<<<<<<< HEAD
           //Determine which element in our recv_buffer corresponds to the packet received
           uint16_t index = recvMsg.header.seqNum > recv_base ? (recvMsg.header.seqNum - recv_base) / 1024 :
                                                                                                                 (WINDOW_SIZE-1 - recv_base + recvMsg.header.seqNum) / 1024;
@@ -240,6 +244,9 @@ int main(int argc, char *argv[])
           cout << "Sending packet " << ackMsg.header.ackNum << endl;
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
+=======
+
+>>>>>>> 3e7c71a5b91a91a9a70f2f35b595dac07e45029f
         }
 
 

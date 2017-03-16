@@ -29,6 +29,7 @@ data length (10 bits) | ...(unsued 4 bits) |SYN (1 bit) | FIN (1 bit) |
 const unsigned int MAX_SEGMENT_SIZE = 1024;
 const unsigned int MAX_SEQ_NUM = 30720;
 const unsigned int TIMEOUT_MS = 500;
+const unsigned int WINDOW_SIZE = 5120; 
 
 struct RDTHeader {
 	uint16_t seqNum;
@@ -39,7 +40,7 @@ struct RDTHeader {
 
 struct RDTSegment {
 	RDTHeader header;
-	char data[1016];
+	char data[1016+1];
 };
 
 

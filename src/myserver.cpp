@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
                     struct RDTSegment fileDataSeg;
                     memset(&fileDataSeg, 0, sizeof(struct RDTSegment));
                     fileDataSeg.header.seqNum = server_sn;
-                    server_sn = (server_sn + MAX_SEGMENT_SIZE) % (MAX_SEQ_NUM + 1);
+                    server_sn = (server_sn + SEGMENT_PAYLOAD_SIZE) % (MAX_SEQ_NUM + 1);
                     memcpy(&fileDataSeg.data, &requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
                     packet_queue.emplace(Packet(fileDataSeg));
                 }

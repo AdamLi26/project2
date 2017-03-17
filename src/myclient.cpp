@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
 
           //Determine the amount of file data read and move that much data into a buffer to be written later
           unsigned int data_left = file_size - file_size_received_so_far;
-          unsigned int amount_of_data = (recvMsg.header.seqNum == last_seqNum) ? data_left : data_per_packet;
+          unsigned int amount_of_data = (recvMsg.header.seqNum == last_seqNum) ? data_left : DATA_PER_PACKET;
           file_size_received_so_far += amount_of_data;
           strncpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data); //bug
 

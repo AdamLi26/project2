@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
             if (clientIP == 0) {
                 clientIP= clientAddress.sin_addr.s_addr;
-                cout << "Handling client: " << inet_ntoa(clientAddress.sin_addr) << endl;
+                // cout << "Handling client: " << inet_ntoa(clientAddress.sin_addr) << endl;
             } else {
                 if (clientIP != clientAddress.sin_addr.s_addr)
                     cerr << "Detect Second Client!" << endl;
@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
                 struct RDTSegment fileLengthSeg;
                 memset(&fileLengthSeg, 0, sizeof(struct RDTSegment));
                 fileLengthSeg.header.seqNum = seqNum;
-                //toNetwork(&fileLengthSeg.header);
+                toNetwork(&fileLengthSeg.header);
                 memcpy(&fileLengthSeg.data, &file_length_in_bytes, sizeof(uint32_t));
                 Packet p(fileLengthSeg);
                 packet_queue.emplace(p);
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
                     struct RDTSegment fileDataSeg;
                     memset(&fileDataSeg, 0, sizeof(struct RDTSegment));
                     fileDataSeg.header.seqNum = seqNum;
-                    //toNetwork(&fileDataSeg.header);
+                    toNetwork(&fileDataSeg.header);
                     memcpy(&fileDataSeg.data, &requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
                     Packet p(fileDataSeg);
                     packet_queue.emplace(p);
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
                 memset(&FINACKSeg, 0, sizeof(struct RDTSegment));
                 FINACKSeg.header.ackNum = generateAck(&recvSeg);
                 setAck(&FINACKSeg.header);
-                //toNetwork(&FINACKSeg.header);
+                toNetwork(&FINACKSeg.header);
                 Packet p(FINACKSeg);
                 packet_queue.emplace(p);
             } else {
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
             struct RDTSegment FINSeg;
             memset(&FINSeg, 0, sizeof(struct RDTSegment));
             setFin(&FINSeg.header);
-            //toNetwork(&FINSeg.header);
+            toNetwork(&FINSeg.header);
             Packet p(FINSeg);
             send_buffer.emplace_back(p);
         }
@@ -193,8 +193,8 @@ int main(int argc, char *argv[])
                 struct RDTSegment s = it->segment();
                 if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)
                     dieWithError("ERROR, fail to send");
-                cout << "Sending packet " << s.header.seqNum << " " << send_window_size;
-                if (isSyn(&s.header))
+                cout << "Sending packet " << s.header.seqNum << " " << send_window_size * MAX_SEGMENT_SIZE;
+                if (isSyn(&s.header)) 
                     cout << " SYN" << endl;
                 else if (isFin(&s.header))
                     cout << " FIN" << endl;

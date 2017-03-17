@@ -24,6 +24,7 @@ struct ClientPacketModule {
 };
 
 const uint16_t CLIENT_INITIAL_SEQUENCE_NUM = 0;
+unsigned int DATA_PER_PACKET = MAX_SEGMENT_SIZE - sizeof(RDTHeader);
 
 int main(int argc, char *argv[])
 {
@@ -107,8 +108,8 @@ int main(int argc, char *argv[])
           //print(&recvMsgSYN);
           dieWithError("Error, received a first message that is not a SYN\n");
         }
+        cout << "Receiving packet " << recv_base << endl;
         recv_base++;
-        cout << "Receiving packet 0" << endl;
         break;
       }
       else if(synSeg_ret == 0) {
@@ -230,7 +231,7 @@ int main(int argc, char *argv[])
 
           ackMsg.header.ackNum = recvMsg.header.seqNum;
           setAck(&recvMsg.header);
-          cout << "Send packet " << ackMsg.header.ackNum << endl;
+          cout << "Sending packet " << ackMsg.header.ackNum << endl;
           //toNetwork(&ackMsg.header);
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
@@ -276,17 +277,19 @@ int main(int argc, char *argv[])
         Path 2: Message is a packet that is outside the current window
         Note: Must also check if the window is circling back around
         ****************************/
-        // else if( recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
-        //               || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
-        //   cout << "GOT HERE\n";
-        //   ackMsg.header.ackNum = recvMsg.header.seqNum;
-        //   setAck(&recvMsg.header);
-        //   cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
-        //   //toNetwork(&ackMsg.header);
-        //   if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
-        //       dieWithError("ERROR, fail to send");
-        //   continue;
-        // }
+        else if( (   ((int)recv_end - (int)recv_base > 0) && (  (recvMsg.header.seqNum < recv_base) || ( recvMsg.header.seqNum > recv_end)  ) ) ||
+                      (    ((int)recv_end - (int)recv_base < 0) && (  (recvMsg.header.seqNum < recv_base) && (recvMsg.header.seqNum > recv_end) ) ) ) {
+          //recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
+            //          || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
+          cout << "GOT HERE\n";
+          ackMsg.header.ackNum = recvMsg.header.seqNum;
+          setAck(&recvMsg.header);
+          cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
+          //toNetwork(&ackMsg.header);
+          if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+              dieWithError("ERROR, fail to send");
+          continue;
+        }
         /****************************
         Path 3: Receive packet within our window
         ****************************/
@@ -299,11 +302,8 @@ int main(int argc, char *argv[])
           setAck(&recvMsg.header);
 
           //Determine the amount of file data read and move that much data into a buffer to be written later
-          unsigned int data_per_packet = MAX_SEGMENT_SIZE - sizeof(RDTHeader);
           unsigned int data_left = file_size - file_size_received_so_far;
-          cout << "File size: " << file_size << endl << "Received so far: " << file_size_received_so_far << endl;
           unsigned int amount_of_data = (recvMsg.header.seqNum == last_seqNum) ? data_left : data_per_packet;
-          cout << "Amount of data to be written: " << amount_of_data << endl;
           file_size_received_so_far += amount_of_data;
           strncpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data); //bug
 
@@ -311,8 +311,6 @@ int main(int argc, char *argv[])
           if(amount_of_data == data_left) {
             recv_buffer[index].segment.data[amount_of_data] = '\0';
           }
-          print(&recvMsg);
-          cout << "REceived data: " << recv_buffer[index].segment.data << endl;
 
           //If the sequence number just received is the left bound of our window, we can move the window right
           if(recvMsg.header.seqNum == recv_base) {

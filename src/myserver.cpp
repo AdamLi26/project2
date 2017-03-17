@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
         dieWithError("ERROR, fail to bind");
 
-    /* change the socket to nonblocking *／
+    /* change the socket to nonblocking */
     if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0)
         dieWithError("ERROR, unable to set to nonblocking");
 

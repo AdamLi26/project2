@@ -28,7 +28,7 @@ const size_t send_window_size = 5;
 
 int main(int argc, char *argv[])
 {
-	if (argc != 2)
+    if (argc != 2)
         dieWithError("ERROR, expected only one argument to the program. <port number>");
 
     int serverPort = stoi(argv[1]);
@@ -51,44 +51,41 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
         dieWithError("ERROR, fail to bind");
 
-    if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0) {
+    // change the socket to nonblocking
+    if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0) 
         dieWithError("ERROR, unable to set to nonblocking");
-    }
 
     struct sockaddr_in clientAddress;
-	unsigned int clientAddressLenth;
-	struct RDTSegment recvSeg;
+    unsigned int clientAddressLenth;
+    struct RDTSegment recvSeg;
     memset(&recvSeg, 0, sizeof(struct RDTSegment));
     
-    // initialize the state
+    // initialize the state and buffers
     state server_state;
 
     deque<Packet> send_buffer;
     queue<Packet> packet_queue;
     unsigned int server_isn;
     monotonic_clock::time_point time_wait_start_time;
-    uint32_t clientIP = 0;
+    uint32_t clientIP = 0; // 0 means not assgined
 
     server_state = LISTEN;
 
     while (true) {
-    	// Set the size of the in-out parameter
-    	clientAddressLenth = sizeof(clientAddress);
+        // Set the size of the in-out parameter
+        clientAddressLenth = sizeof(clientAddress);
 
-		// Block until receive message from a client 
-		if (recvfrom(sockfd, &recvSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, &clientAddressLenth) > 0) {
-            
-			// dieWithError("ERROR, fail to receive!");
-        
+        // if did not receive message from a client, returns -1
+        if (recvfrom(sockfd, &recvSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, &clientAddressLenth) > 0) {
+            // dieWithError("ERROR, fail to receive!");
             cout << "Receiving packet " << recvSeg.header.ackNum << endl;
 
             if (clientIP == 0) {
                 clientIP= clientAddress.sin_addr.s_addr;
                 cout << "Handling client: " << inet_ntoa(clientAddress.sin_addr) << endl;
             } else {
-                if (clientIP != clientAddress.sin_addr.s_addr) {
+                if (clientIP != clientAddress.sin_addr.s_addr)
                     cerr << "Detect Second Client!" << endl;
-                }
             }
             
             toLocal(&recvSeg.header);
@@ -132,13 +129,13 @@ int main(int argc, char *argv[])
                 seqNum += MAX_SEGMENT_SIZE;
 
                 // packetize the file and push it into packet_queue
-                int total_num_packet = ceil(file_length_in_bytes/1016);
+                int total_num_packet = ceil(file_length_in_bytes/SEGMENT_PAYLOAD_SIZE);
                 for (int i = 0; i < total_num_packet; ++i) {
                     struct RDTSegment fileDataSeg;
                     memset(&fileDataSeg, 0, sizeof(struct RDTSegment));
                     fileDataSeg.header.seqNum = seqNum;
                     //toNetwork(&fileDataSeg.header);
-                    memcpy(&fileDataSeg.data, &requestedFile_c + i * 1016, 1016);
+                    memcpy(&fileDataSeg.data, &requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
                     Packet p(fileDataSeg);
                     packet_queue.emplace(p);
                     seqNum += MAX_SEGMENT_SIZE;

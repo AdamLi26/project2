@@ -27,6 +27,7 @@ For flag
 */
 
 const unsigned int MAX_SEGMENT_SIZE = 1024;
+const unsigned int SEGMENT_PAYLOAD_SIZE = 1016;
 const unsigned int MAX_SEQ_NUM = 30720;
 
 struct RDTHeader {
@@ -38,7 +39,7 @@ struct RDTHeader {
 
 struct RDTSegment {
 	RDTHeader header;
-	char data[MAX_SEGMENT_SIZE - sizeof(RDTHeader)];
+	char data[SEGMENT_PAYLOAD_SIZE];
 };
 
 

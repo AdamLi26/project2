@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     memset(&synSeg, 0, sizeof(struct RDTSegment));
     setSyn(&synSeg.header);
     synSeg.header.seqNum = CLIENT_INITIAL_SEQUENCE_NUM;
-    toNetwork(&synSeg.header);
+    //toNetwork(&synSeg.header);
 
     //Declare an fd_set that will be used for entire "connection"
     //readfds is used for select() to monitor our socket
@@ -77,7 +77,8 @@ int main(int argc, char *argv[])
 
 
 
-
+    struct RDTSegment recvMsgSYN;
+    memset(&recvMsgSYN, 0, sizeof(struct RDTSegment));
     /********************************************************
     I. SEND SYN AND RECEIVE SYNACK
     Take into acount that either one may be lost
@@ -87,23 +88,23 @@ int main(int argc, char *argv[])
 	     dieWithError("ERROR, fail to send");
        cout << "Sending packet SYN\n";
 
-      struct RDTSegment recvMsg;
-      memset(&recvMsg, 0, sizeof(struct RDTSegment));
 
 
+
+      tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
       int synSeg_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(synSeg_ret > 0) {
         //Received data
-        if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
+        if(recvfrom(sockfd, &recvMsgSYN, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
           dieWithError("ERROR, fail to receive");
         }
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
-        toLocal(&recvMsg.header);
-        if(!isSyn(&recvMsg.header)) {
+        toLocal(&recvMsgSYN.header);
+        if(!isSyn(&recvMsgSYN.header)) {
           //Received a message from the server that is not a SYN. Figure out whether to terminate or what here
-          print(&recvMsg);
+          print(&recvMsgSYN);
           dieWithError("Error, received a first message that is not a SYN\n");
         }
         recv_base++;
@@ -128,20 +129,24 @@ int main(int argc, char *argv[])
       struct RDTSegment file_request_segment;
       memset(&file_request_segment, 0, sizeof(struct RDTSegment));
       file_request_segment.header.seqNum = 1;
-      file_request_segment.header.ackNum = recv_base;
+      file_request_segment.header.ackNum = generateAck(&recvMsgSYN);
+      setAck(&file_request_segment.header);
 
       cout << "Sending packet " << file_request_segment.header.seqNum << endl;
       strcpy(file_request_segment.data, argv[3]);
+      //toNetwork(&file_request_segment.header);
       if (sendto(sockfd, &file_request_segment, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
 	     dieWithError("ERROR, fail to send");
 
 
-      toNetwork(&file_request_segment.header);
+
+      //toNetwork(&file_request_segment.header);
 
       struct RDTSegment recvMsg;
       memset(&recvMsg, 0, sizeof(struct RDTSegment));
 
 
+      tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
       int file_request_segment_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(file_request_segment_ret > 0) {
         //Received data
@@ -153,10 +158,9 @@ int main(int argc, char *argv[])
         }
         toLocal(&recvMsg.header);
         cout << "Receiving packet " << recv_base << endl;
-        char file_size_string[4+1] ;
-        strncpy(file_size_string, recvMsg.data, 4);
-        file_size_string[4] = '\0';
-        file_size = (uint32_t) atoi(file_size_string);
+        uint32_t file_size;
+        memcpy(&file_size, recvMsg.data, 4);
+        //file_size = ntohl(file_size);
         cout << "Preparing to receive file of size: " << file_size << endl;
         recv_base+=MAX_SEGMENT_SIZE;
         break;
@@ -213,7 +217,9 @@ int main(int argc, char *argv[])
           close(fd);
 
           ackMsg.header.ackNum = recvMsg.header.seqNum;
+          setAck(&recvMsg.header);
           cout << "Send packet " << ackMsg.header.ackNum << endl;
+          //toNetwork(&ackMsg.header);
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
 
@@ -225,6 +231,7 @@ int main(int argc, char *argv[])
             final_seqNum = MAX_SEQ_NUM - final_seqNum;
           cout << "Send packet " << final_seqNum << " FIN\n";
           finMsg.header.seqNum = final_seqNum;
+          //toNetwork(&finMsg.header);
           if (sendto(sockfd, &finMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
 
@@ -233,6 +240,7 @@ int main(int argc, char *argv[])
           for(int i=0; i < 60; i++) {
             //Reuse synSeg, which contains the timeout value
             memset(&recvMsg, 0, sizeof(RDTSegment));
+            tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
             int fin_seg_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
             if(fin_seg_ret > 0) {
               if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
@@ -243,6 +251,7 @@ int main(int argc, char *argv[])
               return 0;
             }
           else {
+              //toNetwork(&finMsg.header);
               if (sendto(sockfd, &finMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
                 dieWithError("ERROR, fail to send");
           }
@@ -258,7 +267,9 @@ int main(int argc, char *argv[])
         else if( recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
                       || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
           ackMsg.header.ackNum = recvMsg.header.seqNum;
+          setAck(&recvMsg.header);
           cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
+          //toNetwork(&ackMsg.header);
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
           continue;
@@ -272,6 +283,7 @@ int main(int argc, char *argv[])
                                                                                                                 (MAX_SEQ_NUM - recv_base + recvMsg.header.seqNum) / 1024;
           recv_buffer[index].received_ = true;
           ackMsg.header.ackNum = recvMsg.header.seqNum;
+          setAck(&recvMsg.header);
 
           //Determine the amount of file data read and move that much data into a buffer to be written later
           unsigned int data_per_packet = MAX_SEGMENT_SIZE - sizeof(RDTHeader);
@@ -317,6 +329,7 @@ int main(int argc, char *argv[])
           }
           //Finally, ACK the packet we just received
           cout << "Sending packet " << ackMsg.header.ackNum << endl;
+          //toNetwork(&ackMsg.header);
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
         }

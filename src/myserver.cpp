@@ -220,9 +220,10 @@ int main(int argc, char *argv[])
 
         /* time wait for closing */
         if (server_state == TIME_WAIT && duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time) > TIME_WAIT_DURATION) {
-            server_state = CLOSED; // need to change to LISTEN later
-            cout << duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time).count()<<endl;
-            break;
+            // server_state = CLOSED; // need to change to LISTEN later
+            // cout << duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time).count()<<endl;
+            server_state = LISTEN;
+
         }
     }
 

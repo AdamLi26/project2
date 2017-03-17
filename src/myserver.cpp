@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 
             toLocal(&recvSeg.header);
             // cout << "Server Received: " << endl;
-            // print(&recvSeg);
+            print(&recvSeg);
 
             if (server_state == LISTEN && isSyn(&recvSeg.header)) {
                 server_state = SYN_RCVD;
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
                 SYNACKSeg.header.ackNum = generateAck(&recvSeg);
                 setAck(&SYNACKSeg.header);
                 setSyn(&SYNACKSeg.header);
-                toNetwork(&SYNACKSeg.header);
+                //toNetwork(&SYNACKSeg.header);
                 Packet p(SYNACKSeg);
                 packet_queue.emplace(p);
             } else if (server_state == SYN_RCVD && isAck(&recvSeg.header) && recvSeg.header.ackNum == server_isn + MAX_SEGMENT_SIZE) {
@@ -117,25 +117,30 @@ int main(int argc, char *argv[])
                 const char *requestedFile_c = requestedFileString.c_str();
 
                 // file length
-                uint32_t file_length_in_bytes = htonl(requestedFileString.size());
+                // uint32_t file_length_in_bytes = htonl(requestedFileString.size());
+                uint32_t file_length_in_bytes = requestedFileString.size();
                 int seqNum = server_isn + MAX_SEGMENT_SIZE;
                 struct RDTSegment fileLengthSeg;
                 memset(&fileLengthSeg, 0, sizeof(struct RDTSegment));
                 fileLengthSeg.header.seqNum = seqNum;
-                toNetwork(&fileLengthSeg.header);
+                //toNetwork(&fileLengthSeg.header);
                 memcpy(&fileLengthSeg.data, &file_length_in_bytes, sizeof(uint32_t));
                 Packet p(fileLengthSeg);
                 packet_queue.emplace(p);
                 seqNum += MAX_SEGMENT_SIZE;
 
                 // packetize the file and push it into packet_queue
-                int total_num_packet = ceil(file_length_in_bytes/SEGMENT_PAYLOAD_SIZE);
+                cout << requestedFileString.size() << endl;
+                cout << requestedFileString.size()/SEGMENT_PAYLOAD_SIZE << endl;
+                int total_num_packet = ceil(requestedFileString.size()/(double)SEGMENT_PAYLOAD_SIZE);
+                cout << total_num_packet << endl;
                 for (int i = 0; i < total_num_packet; ++i) {
                     struct RDTSegment fileDataSeg;
                     memset(&fileDataSeg, 0, sizeof(struct RDTSegment));
                     fileDataSeg.header.seqNum = seqNum;
-                    toNetwork(&fileDataSeg.header);
+                    //toNetwork(&fileDataSeg.header);
                     memcpy(&fileDataSeg.data, &requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
+                    cout << "Get Here" << endl;
                     Packet p(fileDataSeg);
                     packet_queue.emplace(p);
                     seqNum += MAX_SEGMENT_SIZE;
@@ -161,7 +166,7 @@ int main(int argc, char *argv[])
                 memset(&FINACKSeg, 0, sizeof(struct RDTSegment));
                 FINACKSeg.header.ackNum = generateAck(&recvSeg);
                 setAck(&FINACKSeg.header);
-                toNetwork(&FINACKSeg.header);
+                //toNetwork(&FINACKSeg.header);
                 Packet p(FINACKSeg);
                 packet_queue.emplace(p);
             } else {
@@ -181,7 +186,7 @@ int main(int argc, char *argv[])
             struct RDTSegment FINSeg;
             memset(&FINSeg, 0, sizeof(struct RDTSegment));
             setFin(&FINSeg.header);
-            toNetwork(&FINSeg.header);
+            //toNetwork(&FINSeg.header);
             Packet p(FINSeg);
             send_buffer.emplace_back(p);
         }
@@ -194,7 +199,7 @@ int main(int argc, char *argv[])
                 if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)
                     dieWithError("ERROR, fail to send");
                 cout << "Sending packet " << s.header.seqNum << " " << send_window_size * MAX_SEGMENT_SIZE;
-                if (isSyn(&s.header)) 
+                if (isSyn(&s.header))
                     cout << " SYN" << endl;
                 else if (isFin(&s.header))
                     cout << " FIN" << endl;
@@ -210,7 +215,7 @@ int main(int argc, char *argv[])
             struct RDTSegment s = it->segment();
             if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)
                 dieWithError("ERROR, fail to send");
-            cout << "Sending packet " << s.header.seqNum << " " << send_window_size;
+            cout << "Sending packet " << s.header.seqNum << " " << send_window_size * MAX_SEGMENT_SIZE;
             if (isSyn(&s.header))
                 cout << " SYN" << endl;
             else if (isFin(&s.header))

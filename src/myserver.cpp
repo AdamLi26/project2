@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
                 ifstream requestedFile(fileName); // open input file
                 string requestedFileString = string((istreambuf_iterator<char>(requestedFile)), istreambuf_iterator<char>()); // max_size: 1073741820
                 const char *requestedFile_c = requestedFileString.c_str();
-
+                
                 /* packetize the file length and push it to the packet_queue */
                 uint32_t file_length_in_bytes = requestedFileString.size();
                 struct RDTSegment fileLengthSeg;
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
                     memset(&fileDataSeg, 0, sizeof(struct RDTSegment));
                     fileDataSeg.header.seqNum = server_sn;
                     server_sn = (server_sn + SEGMENT_PAYLOAD_SIZE) % (MAX_SEQ_NUM + 1);
-                    memcpy(&fileDataSeg.data, &requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
+                    memcpy(&fileDataSeg.data, requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
                     packet_queue.emplace(Packet(fileDataSeg));
                 }
             } else if (server_state == ESTABLISHED && isAck(&recvSeg.header)) {
@@ -220,10 +220,10 @@ int main(int argc, char *argv[])
 
         /* time wait for closing */
         if (server_state == TIME_WAIT && duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time) > TIME_WAIT_DURATION) {
-            // server_state = CLOSED; // need to change to LISTEN later
+            server_state = CLOSED; // need to change to LISTEN later
             // cout << duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time).count()<<endl;
-            server_state = LISTEN;
-
+            // server_state = LISTEN;
+            break;
         }
     }
 

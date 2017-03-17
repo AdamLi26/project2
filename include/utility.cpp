@@ -35,7 +35,7 @@ bool isFin(struct RDTHeader *h) {
 }
 
 uint16_t generateAck(struct RDTSegment *s) {
-	return (s->header.seqNum + MAX_SEGMENT_SIZE) % (MAX_SEQ_NUM + 1);
+	return s->header.seqNum;
 }
 
 void setAck(struct RDTHeader *h) {

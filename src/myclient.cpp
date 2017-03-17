@@ -101,10 +101,10 @@ int main(int argc, char *argv[])
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
-        toLocal(&recvMsgSYN.header);
+        // toLocal(&recvMsgSYN.header);
         if(!isSyn(&recvMsgSYN.header)) {
           //Received a message from the server that is not a SYN. Figure out whether to terminate or what here
-          print(&recvMsgSYN);
+          //print(&recvMsgSYN);
           dieWithError("Error, received a first message that is not a SYN\n");
         }
         recv_base++;
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
-        toLocal(&recvMsg.header);
+        // toLocal(&recvMsg.header);
         cout << "Receiving packet " << recv_base << endl;
         uint32_t file_size;
         memcpy(&file_size, recvMsg.data, 4);
@@ -204,11 +204,12 @@ int main(int argc, char *argv[])
 
         struct RDTSegment ackMsg;
         memset(&ackMsg, 0, sizeof(struct RDTSegment));
+        setAck(&ackMsg.header);
 
         if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
           dieWithError("ERROR, fail to receive");
         }
-        toLocal(&recvMsg.header);
+        // toLocal(&recvMsg.header);
 
         /****************************
         Path 1: Message is a FIN
@@ -246,7 +247,7 @@ int main(int argc, char *argv[])
               if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
                 dieWithError("ERROR, fail to receive");
             }
-              toLocal(&recvMsg.header);
+              // toLocal(&recvMsg.header);
               close(sockfd);
               return 0;
             }

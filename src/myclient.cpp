@@ -23,6 +23,8 @@ struct ClientPacketModule {
   RDTSegment segment;
 };
 
+const uint16_t CLIENT_INITIAL_SEQUENCE_NUM = 0;
+
 int main(int argc, char *argv[])
 {
 	if (argc != 4)
@@ -52,6 +54,7 @@ int main(int argc, char *argv[])
     struct RDTSegment synSeg;
     memset(&synSeg, 0, sizeof(struct RDTSegment));
     setSyn(&synSeg.header);
+    synSeg.header.seqNum = CLIENT_INITIAL_SEQUENCE_NUM;
     toNetwork(&synSeg.header);
 
     //Declare an fd_set that will be used for entire "connection"
@@ -100,7 +103,8 @@ int main(int argc, char *argv[])
         toLocal(&recvMsg.header);
         if(!isSyn(&recvMsg.header)) {
           //Received a message from the server that is not a SYN. Figure out whether to terminate or what here
-          cout << "Error, received a first message that is not a SYN";
+          print(&recvMsg);
+          dieWithError("Error, received a first message that is not a SYN\n");
         }
         recv_base++;
         cout << "Receiving packet 0" << endl;
@@ -124,6 +128,14 @@ int main(int argc, char *argv[])
       struct RDTSegment file_request_segment;
       memset(&file_request_segment, 0, sizeof(struct RDTSegment));
       file_request_segment.header.seqNum = 1;
+      file_request_segment.header.ackNum = recv_base;
+
+      cout << "Sending packet " << file_request_segment.header.seqNum << endl;
+      strcpy(file_request_segment.data, argv[3]);
+      if (sendto(sockfd, &file_request_segment, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+	     dieWithError("ERROR, fail to send");
+
+
       toNetwork(&file_request_segment.header);
 
       struct RDTSegment recvMsg;

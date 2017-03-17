@@ -1,7 +1,7 @@
 #include <sys/socket.h>  // for socket() and bind()
 #include <arpa/inet.h>   // for sockaddr_in and inet_ntoa()
 #include <unistd.h>      // for close()
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <sys/file.h>
 
 #include <cstring>       // for memset()
@@ -35,9 +35,9 @@ int main(int argc, char *argv[])
     if (serverPort < 1 || serverPort > 65535)  // 0 is reserved
         dieWithError("ERROR, please provide the correct port number.");
 
-    // create a UDP socket 
+    // create a UDP socket
     int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sockfd < 0) 
+    if (sockfd < 0)
         dieWithError("ERROR, fail to creat a socket");
 
     // declare and initialize server address
@@ -52,14 +52,14 @@ int main(int argc, char *argv[])
         dieWithError("ERROR, fail to bind");
 
     // change the socket to nonblocking
-    if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0) 
+    if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0)
         dieWithError("ERROR, unable to set to nonblocking");
 
     struct sockaddr_in clientAddress;
     unsigned int clientAddressLenth;
     struct RDTSegment recvSeg;
     memset(&recvSeg, 0, sizeof(struct RDTSegment));
-    
+
     // initialize the state and buffers
     state server_state;
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
                 if (clientIP != clientAddress.sin_addr.s_addr)
                     cerr << "Detect Second Client!" << endl;
             }
-            
+
             toLocal(&recvSeg.header);
             // cout << "Server Received: " << endl;
             // print(&recvSeg);
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
                 send_buffer.pop_front();
                 server_state = ESTABLISHED;
 
-                // open file 
+                // open file
                 string fileName(recvSeg.data);
                 cout << "Openning File: " + fileName << endl;
                 ifstream requestedFile(fileName); // open input file
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
                 Packet p(FINACKSeg);
                 packet_queue.emplace(p);
             } else {
-                // do nothing     
+                // do nothing
             }
         }
 
@@ -183,15 +183,15 @@ int main(int argc, char *argv[])
             setFin(&FINSeg.header);
             toNetwork(&FINSeg.header);
             Packet p(FINSeg);
-            send_buffer.emplace_back(p); 
+            send_buffer.emplace_back(p);
         }
 
 
-        for (auto it = send_buffer.begin(); it < nextPacketNumIter; ++it) { 
+        for (auto it = send_buffer.begin(); it < nextPacketNumIter; ++it) {
             if (!it->isReceived() && duration_cast<milliseconds>(monotonic_clock::now() - it->sentTime()) > RETRANSMISSION_TIME_OUT) {
                 it->updateSentTime();
                 struct RDTSegment s = it->segment();
-                if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0) 
+                if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)
                     dieWithError("ERROR, fail to send");
                 cout << "Sending packet " << s.header.seqNum << " " << send_window_size * MAX_SEGMENT_SIZE;
                 if (isSyn(&s.header)) 
@@ -204,14 +204,14 @@ int main(int argc, char *argv[])
         }
 
         for (auto it = nextPacketNumIter; it < send_buffer.end(); ++it) {
-            if (server_state == TIME_WAIT) 
+            if (server_state == TIME_WAIT)
                 time_wait_start_time = monotonic_clock::now();
             it->updateSentTime();
             struct RDTSegment s = it->segment();
-            if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0) 
+            if (sendto(sockfd, &s, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)
                 dieWithError("ERROR, fail to send");
             cout << "Sending packet " << s.header.seqNum << " " << send_window_size;
-            if (isSyn(&s.header)) 
+            if (isSyn(&s.header))
                 cout << " SYN" << endl;
             else if (isFin(&s.header))
                 cout << " FIN" << endl;

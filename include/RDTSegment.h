@@ -29,7 +29,7 @@ For flag
 
 const unsigned int MAX_SEGMENT_SIZE = 1024;
 const unsigned int SEGMENT_PAYLOAD_SIZE = 1016;
-const unsigned int MAX_SEQ_NUM = 10240;
+const unsigned int MAX_SEQ_NUM = 30720;
 const unsigned int TIMEOUT_MS = 500;
 const unsigned int WINDOW_SIZE = 5120;
 

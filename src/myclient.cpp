@@ -152,6 +152,7 @@ int main(int argc, char *argv[])
       int file_request_segment_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(file_request_segment_ret > 0) {
         //Received data
+        cout << "CAN READ\n";
         if(recvfrom(sockfd, &recvMsg, sizeof(struct RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
           dieWithError("ERROR, fail to receive");
         }
@@ -179,6 +180,7 @@ int main(int argc, char *argv[])
       }
       else if(file_request_segment_ret == 0) {
         //Timout occured. Retry file request
+        cout << "TIMEOUT\n";
         continue;
       }
       else {
@@ -191,9 +193,9 @@ int main(int argc, char *argv[])
       if(fd<0)
         dieWithError("Error: Could not open the file. Please restart");
 
-      uint32_t loops = file_size / MAX_SEQ_NUM;
+      uint32_t loops = file_size / (MAX_SEQ_NUM+1);
       uint32_t last_seqNum = recv_base + (file_size / SEGMENT_PAYLOAD_SIZE) * SEGMENT_PAYLOAD_SIZE;
-      last_seqNum = (last_seqNum % MAX_SEQ_NUM)-loops;
+      last_seqNum = (last_seqNum % (MAX_SEQ_NUM+1)); //-loops;
 
       //Initialize recv_buffer, which represents a window
       unsigned int window_size = WINDOW_SIZE / MAX_SEGMENT_SIZE;
@@ -249,7 +251,8 @@ int main(int argc, char *argv[])
           //toNetwork(&finMsg.header);
           if (sendto(sockfd, &finMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
-          cout << "Last SEQ NUM: " << last_seqNum << endl;
+
+          cout << "last seqNum: " << last_seqNum << endl;
           //Wait for an ACK, retransmitting FIN on Timeout
           //If 30 seconds passes, just close the program
           for(int i=0; i < 60; i++) {
@@ -337,13 +340,11 @@ int main(int argc, char *argv[])
                   recv_base -=  MAX_SEQ_NUM;
                   recv_base--;
                   loops--;
-                  cout << "New recv_base: " << recv_base << endl;
                 }
                 recv_end += SEGMENT_PAYLOAD_SIZE;
                 if(recv_end > MAX_SEQ_NUM) {
                   recv_end -= MAX_SEQ_NUM;
                   recv_end--;
-                  cout << "New recv_end: " << recv_end << endl;
                 }
                 recv_buffer.pop_front();
                 //Add a new ClientPacketModule to track for new packets

@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
                     // print(&s);
                     if (!p.isReceived() && recvSeg.header.ackNum == generateAck(&s)) {
                         p.markReceived();
-                        while (send_buffer.front().isReceived())
+                        while (!send_buffer.empty() && send_buffer.front().isReceived())
                             send_buffer.pop_front();
                     }
                 }
@@ -234,7 +234,6 @@ int main(int argc, char *argv[])
             // cout << "Got here 1" << endl;
             struct RDTSegment s = it->segment();
             if (i == 5) print(&s);
-            // cout << "Got here 2" << endl;
             it->updateSentTime();
             sendToWithPrint(sockfd, &s, sizeof(struct RDTSegment), (struct sockaddr *) &clientAddress, sizeof(clientAddress), false);  
         }

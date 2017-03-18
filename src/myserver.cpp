@@ -1,7 +1,7 @@
 #include <sys/socket.h>  // for socket() and bind()
 #include <arpa/inet.h>   // for sockaddr_in and inet_ntoa()
 #include <unistd.h>      // for close()
-#include <fcntl.h>
+#include <fcntl.h>       // for changing the socket to nonblocking
 #include <sys/file.h>
 
 #include <cassert>       // for debug
@@ -82,7 +82,6 @@ int main(int argc, char *argv[])
     queue<Packet> packet_queue; /* all packets need to be sent */
     unsigned int server_sn; /* server sequence number, needs to update every usage */
     monotonic_clock::time_point time_wait_start_time; /* for time wait mechanism */
-    uint32_t clientIP = 0; /* 0 means not assgined */
 
     server_state = LISTEN;
 
@@ -100,15 +99,6 @@ int main(int argc, char *argv[])
             else
                 cout << recvSeg.header.ackNum << endl;
 
-            if (clientIP == 0) {
-                clientIP= clientAddress.sin_addr.s_addr;
-                // cout << "Handling client: " << inet_ntoa(clientAddress.sin_addr) << endl;
-            } else {
-                if (clientIP != clientAddress.sin_addr.s_addr)
-                    cerr << "Detect Second Client!" << endl;
-            }
-
-            // print(&recvSeg);
             if (server_state == LISTEN && isSyn(&recvSeg.header)) {
                 server_state = SYN_RCVD;
                 server_sn = 0; // remember to randomize
@@ -144,9 +134,9 @@ int main(int argc, char *argv[])
                 packet_queue.emplace(Packet(fileLengthSeg));
 
                 /* packetize the file content and push it into packet_queue */
-                cout << "File Size: " << file_length_in_bytes << endl;
+                // cout << "File Size: " << file_length_in_bytes << endl;
                 int total_num_packet = ceil(file_length_in_bytes/(double)SEGMENT_PAYLOAD_SIZE);
-                cout << "Total number of packet needed: " << total_num_packet << endl;
+                // cout << "Total number of packet needed: " << total_num_packet << endl;
                 for (int i = 0; i < total_num_packet; ++i) {
                     struct RDTSegment fileDataSeg;
                     memset(&fileDataSeg, 0, sizeof(struct RDTSegment));
@@ -155,12 +145,9 @@ int main(int argc, char *argv[])
                     memcpy(&fileDataSeg.data, requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
                     packet_queue.emplace(Packet(fileDataSeg));
                 }
-                cout << "Total number of packet stored: " << packet_queue.size() << endl;
             } else if (server_state == ESTABLISHED && isAck(&recvSeg.header)) {
-                // cout << "send_buffer size: " << send_buffer.size() << endl;
                 for (auto& p : send_buffer) {
                     struct RDTSegment s = p.segment();
-                    // print(&s);
                     if (!p.isReceived() && recvSeg.header.ackNum == generateAck(&s)) {
                         p.markReceived();
                         while (!send_buffer.empty() && send_buffer.front().isReceived())
@@ -179,7 +166,7 @@ int main(int argc, char *argv[])
                 FINACKSeg.header.ackNum = generateAck(&recvSeg);
                 setAck(&FINACKSeg.header);
                 time_wait_start_time = monotonic_clock::now();
-                cout << "Time wait for close..." << endl;
+                cout << "Time wait starts..." << endl;
                 sendToWithPrint(sockfd, &FINACKSeg, sizeof(struct RDTSegment), (struct sockaddr *) &clientAddress, sizeof(clientAddress), false);  
             } else if (server_state == TIME_WAIT && isFin(&recvSeg.header)) {
                 struct RDTSegment FINACKSeg;
@@ -229,11 +216,10 @@ int main(int argc, char *argv[])
 
         /* time wait for closing */
         if (server_state == TIME_WAIT && duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time) > TIME_WAIT_DURATION) {
-            server_state = CLOSED; // need to change to LISTEN later
-            cout << "Server Closed!" << endl;
+            // server_state = CLOSED; // need to change to LISTEN later
+            cout << "Time wait finished!" << endl;
             // cout << duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time).count()<<endl;
             server_state = LISTEN;
-            // break;
         }
     }
 

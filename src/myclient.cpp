@@ -282,6 +282,7 @@ int main(int argc, char *argv[])
             }
               // toLocal(&recvMsg.header);
               if(recvMsg.header.ackNum == final_seqNum) {
+                cout << "Receiving packet " << final_seqNum << endl;
                 close(sockfd);
                 return 0;
             }
@@ -307,6 +308,7 @@ int main(int argc, char *argv[])
                       (    ((int)recv_end - (int)recv_base < 0) && (  (recvMsg.header.seqNum < recv_base) && (recvMsg.header.seqNum > recv_end) ) ) ) {
           //recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
             //          || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
+            cout << "HERE BEFORE DYING\n";
           ackMsg.header.ackNum = recvMsg.header.seqNum;
           setAck(&recvMsg.header);
           cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;

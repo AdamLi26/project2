@@ -148,6 +148,7 @@ int main(int argc, char *argv[])
                     memcpy(&fileDataSeg.data, requestedFile_c + i * SEGMENT_PAYLOAD_SIZE, SEGMENT_PAYLOAD_SIZE);
                     packet_queue.emplace(Packet(fileDataSeg));
                 }
+                cout << "Total number of packet stored: " << packet_queue.size() << endl;
             } else if (server_state == ESTABLISHED && isAck(&recvSeg.header)) {
                 // cout << "send_buffer size: " << send_buffer.size() << endl;
                 for (auto& p : send_buffer) {
@@ -183,13 +184,21 @@ int main(int argc, char *argv[])
             }
         }
 
-        auto nextPacketNumIter = send_buffer.end();
+        int nextPacketNumIter = send_buffer.size();
 
         /* push packets need to send into the send_buffer */
         while (send_buffer.size() < send_window_size && !packet_queue.empty()) {
             send_buffer.emplace_back(packet_queue.front());
             packet_queue.pop();
         }
+        // if (server_state == ESTABLISHED) {
+        //     cout << "send_buffer size: " << send_buffer.size() << endl;
+        //     cout << "print send_buffer: " << endl;
+        //     for (const auto& p : send_buffer) {
+        //         struct RDTSegment s = p.segment();
+        //         print(&s);
+        //     }
+        // }
 
         /* when finish sending the file, initialize the FIN/ACK closing procedure */
         if (server_state == ESTABLISHED && send_buffer.empty()) {
@@ -203,7 +212,7 @@ int main(int argc, char *argv[])
         }
 
         /* retransmission due to timeout */
-        for (auto it = send_buffer.begin(); it < nextPacketNumIter; ++it) {
+        for (auto it = send_buffer.begin(); it < send_buffer.begin() + nextPacketNumIter; ++it) {
             if (!it->isReceived() && duration_cast<milliseconds>(monotonic_clock::now() - it->sentTime()) > RETRANSMISSION_TIME_OUT) {
                 it->updateSentTime();
                 struct RDTSegment s = it->segment();
@@ -212,9 +221,21 @@ int main(int argc, char *argv[])
         }
 
         /* sending for the first time */
-        for (auto it = nextPacketNumIter; it < send_buffer.end(); ++it) {
-            it->updateSentTime();
+        int i = 0;
+        // if (server_state == ESTABLISHED) {
+        //     cout << "send_buffer size before: " << send_buffer.size() << endl;
+        // }
+        for (auto it = send_buffer.begin() + nextPacketNumIter; it < send_buffer.end(); ++it) {
+            // if (server_state == ESTABLISHED) {
+            //     ++i;
+            //     cout << i << endl;
+            // }
+            // cout << "Got here 1" << endl;
+            // cout << "Got here 1" << endl;
             struct RDTSegment s = it->segment();
+            if (i == 5) print(&s);
+            // cout << "Got here 2" << endl;
+            it->updateSentTime();
             sendToWithPrint(sockfd, &s, sizeof(struct RDTSegment), (struct sockaddr *) &clientAddress, sizeof(clientAddress), false);  
         }
 

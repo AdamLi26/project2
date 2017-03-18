@@ -7,3 +7,9 @@ server implementation
 
 Thomas Chang:
 client implementation
+
+Instruction:
+-> change directory to src
+-> make
+-> ./myserver <portnumber>
+-> ./myclient <server_hostname> <server_portnumber> <filename>

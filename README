@@ -1,0 +1,15 @@
+Zhi Li: 504341757 
+Thomas Chang: 004632787
+
+
+Zhi Li:
+server implementation
+
+Thomas Chang:
+client implementation
+
+Instruction:
+-> change directory to src
+-> make
+-> ./myserver <portnumber>
+-> ./myclient <server_hostname> <server_portnumber> <filename>

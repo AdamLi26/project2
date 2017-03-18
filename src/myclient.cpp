@@ -20,9 +20,10 @@
 
 using namespace std;
 
-struct ClientPacketModule {
+class ClientPacketModule {
+public:
   bool received_; //The version of c++ we are using forbids bool received_ = false; in the class definition, so make sure to set this whenever an object of this class type is made
-  RDTSegment segment;
+  struct RDTSegment segment;
   unsigned int amount_of_data;
 };
 
@@ -162,7 +163,6 @@ int main(int argc, char *argv[])
       int file_request_segment_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(file_request_segment_ret > 0) {
         //Received data
-        cout << "CAN READ\n";
         if(recvfrom(sockfd, &recvMsg, sizeof(struct RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
           dieWithError("ERROR, fail to receive");
         }
@@ -214,10 +214,11 @@ int main(int argc, char *argv[])
       unsigned int window_size = WINDOW_SIZE / MAX_SEGMENT_SIZE;
       //I moved the creation of the module outside the for-loop to save on time
       //I believe push_back() uses copying so this is okay
-      ClientPacketModule module;
-      module.received_ = false;
-      memset(&module.segment, 0, sizeof(RDTSegment));
+
       for(unsigned int i=0; i < window_size; i++) {
+        ClientPacketModule module;
+        module.received_ = false;
+        memset(&module.segment, 0, sizeof(RDTSegment));
         module.segment.header.seqNum = recv_base + i*MAX_SEGMENT_SIZE;
         recv_buffer.push_back(module);
       }
@@ -268,7 +269,7 @@ int main(int argc, char *argv[])
           cout << "last seqNum: " << last_seqNum << endl;
           //Wait for an ACK, retransmitting FIN on Timeout
           //If 30 seconds passes, just close the program
-          for(int i=0; i < 60; i++) {
+          for(int i=0; i < 10; i++) {
             //Reuse synSeg, which contains the timeout value
             memset(&recvMsg, 0, sizeof(RDTSegment));
             tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
@@ -285,6 +286,15 @@ int main(int argc, char *argv[])
                 cout << "Receiving packet " << final_seqNum << endl;
                 close(sockfd);
                 return 0;
+            }
+            else {
+              struct RDTSegment extraMsg;
+              memset(&extraMsg, 0, sizeof(struct RDTSegment));
+              setAck(&extraMsg.header);
+              extraMsg.header.ackNum = generateAck(&recvMsg);
+              cout << "Sending packet " << extraMsg.header.seqNum << endl;
+              if (sendto(sockfd, &extraMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+                  dieWithError("ERROR, fail to send");
             }
             }
           else {
@@ -308,7 +318,6 @@ int main(int argc, char *argv[])
                       (    ((int)recv_end - (int)recv_base < 0) && (  (recvMsg.header.seqNum < recv_base) && (recvMsg.header.seqNum > recv_end) ) ) ) {
           //recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
             //          || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
-            cout << "HERE BEFORE DYING\n";
           ackMsg.header.ackNum = recvMsg.header.seqNum;
           setAck(&recvMsg.header);
           cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
@@ -347,7 +356,7 @@ int main(int argc, char *argv[])
           // }
 
           //If the sequence number just received is the left bound of our window, we can move the window right
-          if(recvMsg.header.seqNum == recv_base) {
+          if(recvMsg.header.seqNum == recv_base) {}
             int buffer_size = recv_buffer.size();
             for(int i=0; i<buffer_size; i++) {
               //Move window right while the leftmost packet has already been acked
@@ -386,7 +395,7 @@ int main(int argc, char *argv[])
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
         }
-      } //while(true)
+      //} //while(true)
     close(sockfd);
     dieWithError("Got to the end of main function. Not supposed to happen!");
     return 0;

@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <fcntl.h> //For opening / writing files
 
+#include <unordered_set>
+
 using namespace std;
 
 struct ClientPacketModule {
@@ -94,6 +96,9 @@ int main(int argc, char *argv[])
 
 
       tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
+      fd_set readfds;
+      FD_ZERO(&readfds);
+      FD_SET(sockfd, &readfds);
       int synSeg_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(synSeg_ret > 0) {
         //Received data
@@ -187,7 +192,6 @@ int main(int argc, char *argv[])
       }
       else if(file_request_segment_ret == 0) {
         //Timout occured. Retry file request
-        cout << "TIMEOUT\n";
         continue;
       }
       else {
@@ -195,7 +199,7 @@ int main(int argc, char *argv[])
       }
     } //while(true)
 
-
+     unordered_set<uint16_t> already_ACKED;
 
       //Open / create the file
       int fd = open("received.data", O_WRONLY | O_CREAT | O_TRUNC);
@@ -268,17 +272,24 @@ int main(int argc, char *argv[])
             //Reuse synSeg, which contains the timeout value
             memset(&recvMsg, 0, sizeof(RDTSegment));
             tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
+            fd_set readfds;
+            FD_ZERO(&readfds);
+            FD_SET(sockfd, &readfds);
             int fin_seg_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
             if(fin_seg_ret > 0) {
               if(recvfrom(sockfd, &recvMsg, sizeof(RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
                 dieWithError("ERROR, fail to receive");
             }
               // toLocal(&recvMsg.header);
-              close(sockfd);
-              return 0;
+              if(recvMsg.header.ackNum == final_seqNum) {
+                close(sockfd);
+                return 0;
+            }
             }
           else {
               //toNetwork(&finMsg.header);
+              if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+                  dieWithError("ERROR, fail to send");
               if (sendto(sockfd, &finMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
                 dieWithError("ERROR, fail to send");
           }
@@ -291,7 +302,8 @@ int main(int argc, char *argv[])
         Path 2: Message is a packet that is outside the current window
         Note: Must also check if the window is circling back around
         ****************************/
-        else if( (   ((int)recv_end - (int)recv_base > 0) && (  (recvMsg.header.seqNum < recv_base) || ( recvMsg.header.seqNum > recv_end)  ) ) ||
+        else if(  (already_ACKED.find(recvMsg.header.seqNum) != already_ACKED.end()) ||
+                      (   ((int)recv_end - (int)recv_base > 0) && (  (recvMsg.header.seqNum < recv_base) || ( recvMsg.header.seqNum > recv_end)  ) ) ||
                       (    ((int)recv_end - (int)recv_base < 0) && (  (recvMsg.header.seqNum < recv_base) && (recvMsg.header.seqNum > recv_end) ) ) ) {
           //recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
             //          || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
@@ -325,6 +337,7 @@ int main(int argc, char *argv[])
           memcpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data); //bug
           recv_buffer[index].amount_of_data = amount_of_data;
           recv_buffer[index].segment.header.seqNum = recvMsg.header.seqNum;
+          already_ACKED.insert(recvMsg.header.seqNum);
 
           // //If data received is less than the size of the data buffer, set the null byte
           // if(amount_of_data == data_left) {
@@ -340,6 +353,7 @@ int main(int argc, char *argv[])
                 //Write to file
                 //int amount_to_write = recv_buffer.front().amoun;
                 write(fd, recv_buffer.front().segment.data, recv_buffer.front().amount_of_data);
+                already_ACKED.erase(recv_buffer.front().segment.header.seqNum);
 
 
                 recv_base += SEGMENT_PAYLOAD_SIZE;

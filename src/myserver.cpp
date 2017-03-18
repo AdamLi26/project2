@@ -91,7 +91,14 @@ int main(int argc, char *argv[])
 
         /* Nonblocking: if did not receive message from a client, returns -1 */
         if (recvfrom(sockfd, &recvSeg, sizeof(struct RDTSegment), 0, (struct sockaddr *) &clientAddress, &clientAddressLenth) > 0) {
-            cout << "Receiving packet " << recvSeg.header.ackNum << endl;
+            /* output ACK number of receiving packet or SYN, FIN */
+            cout << "Receiving packet ";
+            if (isSyn(&recvSeg.header))
+                cout << "SYN" << endl;
+            else if (isFin(&recvSeg.header)) 
+                cout << "FIN" << endl;
+            else
+                cout << recvSeg.header.ackNum << endl;
 
             if (clientIP == 0) {
                 clientIP= clientAddress.sin_addr.s_addr;
@@ -191,14 +198,6 @@ int main(int argc, char *argv[])
             send_buffer.emplace_back(packet_queue.front());
             packet_queue.pop();
         }
-        // if (server_state == ESTABLISHED) {
-        //     cout << "send_buffer size: " << send_buffer.size() << endl;
-        //     cout << "print send_buffer: " << endl;
-        //     for (const auto& p : send_buffer) {
-        //         struct RDTSegment s = p.segment();
-        //         print(&s);
-        //     }
-        // }
 
         /* when finish sending the file, initialize the FIN/ACK closing procedure */
         if (server_state == ESTABLISHED && send_buffer.empty()) {
@@ -221,20 +220,9 @@ int main(int argc, char *argv[])
         }
 
         /* sending for the first time */
-        int i = 0;
-        // if (server_state == ESTABLISHED) {
-        //     cout << "send_buffer size before: " << send_buffer.size() << endl;
-        // }
         for (auto it = send_buffer.begin() + nextPacketNumIter; it < send_buffer.end(); ++it) {
-            // if (server_state == ESTABLISHED) {
-            //     ++i;
-            //     cout << i << endl;
-            // }
-            // cout << "Got here 1" << endl;
-            // cout << "Got here 1" << endl;
-            struct RDTSegment s = it->segment();
-            if (i == 5) print(&s);
             it->updateSentTime();
+            struct RDTSegment s = it->segment();
             sendToWithPrint(sockfd, &s, sizeof(struct RDTSegment), (struct sockaddr *) &clientAddress, sizeof(clientAddress), false);  
         }
 

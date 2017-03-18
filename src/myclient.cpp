@@ -126,7 +126,9 @@ int main(int argc, char *argv[])
     /********************************************************
     II. REQUEST THE FILE AND RECEIVE THE FILE SIZE
     ********************************************************/
+    int ii = 0;
     while(true) {
+      cout << ii++ << endl;
 
       struct RDTSegment file_request_segment;
       memset(&file_request_segment, 0, sizeof(struct RDTSegment));
@@ -149,6 +151,9 @@ int main(int argc, char *argv[])
 
 
       tv_synSeg.tv_usec = (long) TIMEOUT_MS * 1000;
+      fd_set readfds;
+      FD_ZERO(&readfds);
+      FD_SET(sockfd, &readfds);
       int file_request_segment_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(file_request_segment_ret > 0) {
         //Received data

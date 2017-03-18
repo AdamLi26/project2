@@ -126,9 +126,7 @@ int main(int argc, char *argv[])
     /********************************************************
     II. REQUEST THE FILE AND RECEIVE THE FILE SIZE
     ********************************************************/
-    int ii = 0;
     while(true) {
-      cout << ii++ << endl;
 
       struct RDTSegment file_request_segment;
       memset(&file_request_segment, 0, sizeof(struct RDTSegment));
@@ -314,7 +312,6 @@ int main(int argc, char *argv[])
           unsigned int data_left = file_size - file_size_received_so_far;
           bool write_less_data = false;
           if(recvMsg.header.seqNum == last_seqNum) {
-            cout << "LOOPS: " << loops << endl;
             if(loops == 0) write_less_data = true;
           }
           unsigned int amount_of_data = write_less_data ? data_left : DATA_PER_PACKET;
@@ -336,7 +333,6 @@ int main(int argc, char *argv[])
               if(recv_buffer.front().received_) {
                 //Write to file
                 //int amount_to_write = recv_buffer.front().amoun;
-                cout << "Writing segment " << recv_buffer.front().segment.header.seqNum << endl;
                 write(fd, recv_buffer.front().segment.data, recv_buffer.front().amount_of_data);
 
 

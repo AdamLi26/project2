@@ -103,6 +103,8 @@ int main(int argc, char *argv[])
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
+        if(recvMsgSYN.segment.header.seqNum != recv_base)
+          continue;
         // toLocal(&recvMsgSYN.header);
         if(!isSyn(&recvMsgSYN.header)) {
           //Received a message from the server that is not a SYN. Figure out whether to terminate or what here
@@ -162,6 +164,8 @@ int main(int argc, char *argv[])
         if(serverAddress.sin_addr.s_addr != fromAddr.sin_addr.s_addr) {
           dieWithError("ERROR, unknown server");
         }
+        if(recvMsg.segment.header.seqNum != recv_base)
+          continue;
         // toLocal(&recvMsg.header);
         cout << "Receiving packet " << recv_base << endl;
         memcpy(&file_size, recvMsg.data, 4);
@@ -211,7 +215,7 @@ int main(int argc, char *argv[])
         module.segment.header.seqNum = recv_base + i*MAX_SEGMENT_SIZE;
         recv_buffer.push_back(module);
       }
-
+      ///FIX BUG
       recv_end = recv_base + WINDOW_SIZE;
 
       /********************************************************

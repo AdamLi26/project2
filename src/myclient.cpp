@@ -284,7 +284,6 @@ int main(int argc, char *argv[])
                       (    ((int)recv_end - (int)recv_base < 0) && (  (recvMsg.header.seqNum < recv_base) && (recvMsg.header.seqNum > recv_end) ) ) ) {
           //recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
             //          || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
-            cout << "Receive base: " << recv_base << endl << "Receive end: " << recv_end << endl << "Packet Num: " << recvMsg.header.seqNum << endl;
           ackMsg.header.ackNum = recvMsg.header.seqNum;
           setAck(&recvMsg.header);
           cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
@@ -312,11 +311,9 @@ int main(int argc, char *argv[])
             else loops--;
           }
           unsigned int amount_of_data = write_less_data ? data_left : DATA_PER_PACKET;
-          cout << "recvMsg seqNum: " << recvMsg.header.seqNum << endl << "last seqNum: " << last_seqNum << endl;
           file_size_received_so_far += amount_of_data;
           memcpy(recv_buffer[index].segment.data, recvMsg.data, amount_of_data); //bug
           recv_buffer[index].amount_of_data = amount_of_data;
-          print(&recvMsg);
 
           // //If data received is less than the size of the data buffer, set the null byte
           // if(amount_of_data == data_left) {

@@ -163,7 +163,6 @@ int main(int argc, char *argv[])
       int file_request_segment_ret = select(sockfd + 1, &readfds, NULL, NULL, &tv_synSeg);
       if(file_request_segment_ret > 0) {
         //Received data
-        cout << "CAN READ\n";
         if(recvfrom(sockfd, &recvMsg, sizeof(struct RDTSegment), 0, (struct sockaddr*) &fromAddr, &fromSize) < 0) {
           dieWithError("ERROR, fail to receive");
         }
@@ -396,7 +395,7 @@ int main(int argc, char *argv[])
           if (sendto(sockfd, &ackMsg, sizeof(struct RDTSegment), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
               dieWithError("ERROR, fail to send");
         }
-      } //while(true)
+      //} //while(true)
     close(sockfd);
     dieWithError("Got to the end of main function. Not supposed to happen!");
     return 0;

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <cstdint>
+#include<iostream>
 
 /*
 
@@ -41,8 +42,8 @@ struct RDTHeader {
 };
 
 struct RDTSegment {
-	RDTHeader header;
 	char data[SEGMENT_PAYLOAD_SIZE];
+	RDTHeader header;
 };
 
 

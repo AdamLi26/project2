@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
                 FINACKSeg.header.ackNum = generateAck(&recvSeg);
                 setAck(&FINACKSeg.header);
                 time_wait_start_time = monotonic_clock::now();
-                cout << "Time wait starts..." << endl;
+                // cout << "Time wait starts..." << endl;
                 sendToWithPrint(sockfd, &FINACKSeg, sizeof(struct RDTSegment), (struct sockaddr *) &clientAddress, sizeof(clientAddress), false);  
             } else if (server_state == TIME_WAIT && isFin(&recvSeg.header)) {
                 struct RDTSegment FINACKSeg;
@@ -216,9 +216,7 @@ int main(int argc, char *argv[])
 
         /* time wait for closing */
         if (server_state == TIME_WAIT && duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time) > TIME_WAIT_DURATION) {
-            // server_state = CLOSED; // need to change to LISTEN later
-            cout << "Time wait finished!" << endl;
-            // cout << duration_cast<milliseconds>(monotonic_clock::now() - time_wait_start_time).count()<<endl;
+            // cout << "Time wait finished!" << endl;
             server_state = LISTEN;
         }
     }

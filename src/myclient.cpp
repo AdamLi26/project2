@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
                       (    ((int)recv_end - (int)recv_base < 0) && (  (recvMsg.header.seqNum < recv_base) && (recvMsg.header.seqNum > recv_end) ) ) ) {
           //recvMsg.header.seqNum < recv_base && ( (recv_end < recv_base &&  recvMsg.header.seqNum > recv_end)
             //          || (recv_end > recv_base && recvMsg.header.seqNum < recv_end) ) ) {
-          cout << "GOT HERE\n";
+            cout << "Receive base: " << recv_base << endl << "Receive end: " << recv_end << endl << "Packet Num: " << recvMsg.header.seqNum << endl;
           ackMsg.header.ackNum = recvMsg.header.seqNum;
           setAck(&recvMsg.header);
           cout << "Sending packet " << ackMsg.header.ackNum << " Retransmission" << endl;
@@ -323,11 +323,11 @@ int main(int argc, char *argv[])
                 cout << "Writing segment " << recv_buffer.front().segment.header.seqNum << endl;
                 write(fd, recv_buffer.front().segment.data, amount_to_write);
 
-                recv_base += MAX_SEGMENT_SIZE;
+                recv_base += SEGMENT_PAYLOAD_SIZE;
                 if(recv_base > MAX_SEQ_NUM) {
                   recv_base -=  MAX_SEQ_NUM;
                 }
-                recv_end += MAX_SEGMENT_SIZE;
+                recv_end += SEGMENT_PAYLOAD_SIZE;
                 if(recv_end > MAX_SEQ_NUM) {
                   recv_end -= MAX_SEQ_NUM;
                 }
